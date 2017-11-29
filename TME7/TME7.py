@@ -108,16 +108,44 @@ def viterbi(x,Pi,A,B):
         phi[i][0] = -1;
     #Recursion
     for t in range(1,x.size):
+        observation = np.int(x[t]);
+        s_t_last = sigma[:, t-1];
         for i in range(N):
-            obs = np.int(x[t]);
-            s_t_last = sigma[:, t-1];
             a_i = np.log(A[:, i]);
             sums = np.array([sigma[prev_i][t-1] + np.log(A[prev_i][i]) for prev_i in range(N)])
-            sigma[i][t] = sums.max() + np.log(B[i][obs]);
+            sigma[i][t] = sums.max() + np.log(B[i][observation]);
             phi[i][t] = sums.argmax()
     p_est = sigma[:,-1].max()
-    s_est = [phi[:,j].argmax() for j in range(phi.shape[1])]
-    return (s_est, p_est, sigma, phi)
+    s_est = np.zeros(phi.shape[1]);
+    s_est[(phi.shape[1]-1)] = phi[:,-1].max();
+    for i in range(phi.shape[1]-2, 0, -1):
+        s_est[i] = phi[s_est[i+1], i+1];
+    return (s_est, p_est)
             
-s_est, p_est, s, p = viterbi(Xd[0], Pi, A, B)
+s_est, p_est = viterbi(Xd[0], Pi, A, B)
+print("s_est: ", s_est)
 print("p_est: ", p_est)
+
+def log_matrice(V):
+    return np.array([0 if v == 0 else np.log(v) for v in V])
+
+def calcul_log_pobs_V2(x, Pi,A,B):
+    N,T = B.shape;
+    alpha = np.zeros((N,x.size))
+    #initialize
+    for i in range(N):
+        obs = np.int(x[0])
+        alpha[i,0] = 0 if (Pi[i] == 0 or B[i][obs] == 0) else np.log(Pi[i]) + np.log(B[i][obs]);
+    #Recursion
+    for t in range(1, x.size):
+        alpha_t = alpha[:, t-1];
+        obs = np.int(x[t]);
+        for i in range(N):
+            transitions = np.log(A[:,i]); #log_matrice(A[:,i])
+            alpha[i][t] = (alpha_t + transitions).sum() + 0 if B[i][obs] == 0 else np.log(B[i][obs]);
+    return (alpha[:,-1].sum(), alpha)
+
+p,a = calcul_log_pobs_V2(Xd[0], Pi, A, B);
+print("p = ",p)
+        
+    
