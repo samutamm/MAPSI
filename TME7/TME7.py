@@ -125,8 +125,6 @@ def viterbi(x,Pi,A,B):
     return (s_est, p_est)
             
 s_est, p_est = viterbi(Xd[0], Pi, A, B)
-print("s_est: ", s_est)
-print("p_est: ", p_est)
 
 def log_matrice(V):
     return np.array([0 if v == 0 else np.log(v) for v in V])
@@ -150,47 +148,58 @@ def log_matrice(V):
 #p,a = calcul_log_pobs_V2(Xd[0], Pi, A, B);
 #print("p = ",p)
 
-def iteration(Xd, Y,Pi,A,B, N,K):
-    T = B.shape[1];
-    GD = initGD(X,N);
+def iteration(Xd, GD, Y, N,K):
     classes = np.unique(Y)
     nClasse=classes.size
     classification = []
+    sequences_estime = []
     
     modeles = []
-    modele_proba = np.zeros((X.size, nClasse))
+    probas_estime = np.zeros((X.size, nClasse))
     for cl in classes:
         modeles.append(learnHMM(Xd[Y==cl],GD[Y==cl],N,K, True))
     for i,x in enumerate(Xd):
         classe_resultat = []
+        classe_sequences = []
         for j,modele_i in enumerate(modeles):
             Pix, Ax, Bx = modele_i
-            viterbi_res = viterbi(x, Pix, Ax, Bx)[1] # sequence?
-            modele_proba[i][j] = viterbi_res
-            classe_resultat.append(viterbi_res)
+            viterbi_res = viterbi(x, Pix, Ax, Bx)
+            probas_estime[i][j] = viterbi_res[1]
+            classe_sequences.append(viterbi_res[0])
+            classe_resultat.append(viterbi_res[1])
         classe_max = np.array(classe_resultat).argmax()
+        max_sequence = classe_sequences[classe_max]
+        sequences_estime.append(max_sequence)
         classification.append(classe_max)
-    return (modele_proba, classification)
+    classification = np.array(classification) #conversion to numpy
+    sequences_estime = np.array(sequences_estime)
+    log_lk = 0;
+    for cl_i,cl in enumerate(classes):
+        classe_predictions = probas_estime[np.where(classification==cl_i)]
+        log_lk += np.extract(classe_predictions != -np.inf, classe_predictions).sum();
+    return (sequences_estime, classification, log_lk)
 
-def calcul_log_lk(m,Y):
-        
-    
-    return 77
 
 def baumwelch(X, Y,Pi,A,B, N,K):
     Xd = discretise(X,N)
+    GD = initGD(X,N);
     last_iteration = 10000    
     convergence = False    
-    
+    c = [];
+    m = [];
+    signaux = GD
     while not (convergence):
         limite=0.0001
         # iteration
-        m,c = iteration(Xd, Y,Pi,A,B, N,K)
+        s,c,lk = iteration(Xd, signaux, Y, N,K)
+        signaux = s
         # calcul log Lk 
-        lk = calcul_log_lk(m,Y)
-        convergence = (lk - last_iteration) / lk < limite
-    return m
+        #convergence = True
+        print("maximum de vraisemblance: ",lk)
+        convergence = abs((abs(lk) - abs(last_iteration)) / abs(lk)) < limite
+        last_iteration = lk
+    return (signaux, c)
         
         
 
-m = baumwelch(X, Y,Pi,A,B,N,K)
+c = baumwelch(X, Y,Pi,A,B,N,K)
