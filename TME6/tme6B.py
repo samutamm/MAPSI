@@ -73,12 +73,12 @@ def calculProba(d, Xlocal1, Ylocal1, Xlocal2):
         [probaSequence(Xd2[i], models[cl][0], models[cl][1]) for i in range(len(Xlocal2))] 
         for cl in range(len(np.unique(Ylocal1)))
     ])
-    return proba
+    return (proba,models)
 
 ### Evaluation des performances ###
 
 # Char à numero
-proba = calculProba(20, X, Y, X)
+proba, models = calculProba(20, X, Y, X)
 Ynum = np.zeros(Y.shape);
 for num,char in enumerate(np.unique(Y)):
     Ynum[Y==char] = num;
@@ -123,7 +123,7 @@ predictions = []
 for d in range(10,90,10):
     Xd_test = discretise(X[it], d)
     
-    proba = calculProba(d, X[ia], Y[ia], X[it])
+    proba = calculProba(d, X[ia], Y[ia], X[it])[0]
     
     pred = proba.argmax(0);
     print("teste avec le separation à training et test, d =",d)
@@ -166,8 +166,8 @@ def generate(pi, model, N):
 #Evaluation qualitative
 pred = predictions[2] # d = 20
 visualise_conf(Ynum, pred, Y);
-
 #Modèle génératif
+models = calculProba(d, X, Y, X)[1]
 newa = generate(models[0][0],models[0][1], 25) # generation d'une séquence d'états
 intervalle = 360./d # pour passer des états => valeur d'angles
 newa_continu = np.array([i*intervalle for i in newa]) # conv int => double

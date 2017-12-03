@@ -93,9 +93,9 @@ def learnHMM(allx, alls, N, K, initTo0=False):
 K = 10 # discrétisation (=10 observations possibles)
 N = 5  # 5 états possibles (de 0 à 4 en python) 
 # Xd = angles observés discrétisés    
-Xd = discretise(X,K)
-GD = initGD(Xd,N);
-Pi, A, B = learnHMM(Xd[Y=='a'],GD[Y=='a'],N,K, True)
+#Xd = discretise(X,K)
+#GD = initGD(Xd,N);
+#Pi, A, B = learnHMM(Xd[Y=='a'],GD[Y=='a'],N,K, True)
 
 
 def viterbi(x,Pi,A,B):
@@ -127,79 +127,124 @@ def viterbi(x,Pi,A,B):
 s_est, p_est = viterbi(Xd[0], Pi, A, B)
 
 def log_matrice(V):
-    return np.array([0 if v == 0 else np.log(v) for v in V])
-
-#def calcul_log_pobs_V2(x, Pi,A,B):
-#    N,T = B.shape;
-#    alpha = np.zeros((N,x.size))
-#    #initialize
-#    for i in range(N):
-#        obs = np.int(x[0])
-#        alpha[i,0] = 0 if (Pi[i] == 0 or B[i][obs] == 0) else np.log(Pi[i]) + np.log(B[i][obs]);
-#    #Recursion
-#    for t in range(1, x.size):
-#        alpha_t = alpha[:, t-1];
-#        obs = np.int(x[t]);
-#        for i in range(N):
-#            transitions = np.log(A[:,i]); #log_matrice(A[:,i])
-#            alpha[i][t] = (alpha_t + transitions).sum() + 0 if B[i][obs] == 0 else np.log(B[i][obs]);
-#    return (alpha[:,-1].sum(), alpha)
-
-#p,a = calcul_log_pobs_V2(Xd[0], Pi, A, B);
-#print("p = ",p)
-
-def iteration(Xd, GD, Y, N,K):
-    classes = np.unique(Y)
-    nClasse=classes.size
-    classification = []
-    sequences_estime = []
-    
-    modeles = []
-    probas_estime = np.zeros((X.size, nClasse))
-    for cl in classes:
-        modeles.append(learnHMM(Xd[Y==cl],GD[Y==cl],N,K, True))
-    for i,x in enumerate(Xd):
-        classe_resultat = []
-        classe_sequences = []
-        for j,modele_i in enumerate(modeles):
-            Pix, Ax, Bx = modele_i
-            viterbi_res = viterbi(x, Pix, Ax, Bx)
-            probas_estime[i][j] = viterbi_res[1]
-            classe_sequences.append(viterbi_res[0])
-            classe_resultat.append(viterbi_res[1])
-        classe_max = np.array(classe_resultat).argmax()
-        max_sequence = classe_sequences[classe_max]
-        sequences_estime.append(max_sequence)
-        classification.append(classe_max)
-    classification = np.array(classification) #conversion to numpy
-    sequences_estime = np.array(sequences_estime)
-    log_lk = 0;
-    for cl_i,cl in enumerate(classes):
-        classe_predictions = probas_estime[np.where(classification==cl_i)]
-        log_lk += np.extract(classe_predictions != -np.inf, classe_predictions).sum();
-    return (sequences_estime, classification, log_lk)
-
-
-def baumwelch(X, Y,Pi,A,B, N,K):
-    Xd = discretise(X,N)
+    return np.array([0 if v == 0 else np.log(v) for v in V])        
+        
+def baumwelch(X, Y, N, K):
+    Xd = discretise(X,K)
     GD = initGD(X,N);
-    last_iteration = 10000    
-    convergence = False    
-    c = [];
-    m = [];
+    index = groupByLabel(Y)
+    limite=0.0001
+    convergence = False
     signaux = GD
+    classes = np.unique(Y)
+    L=[1]
+    probas_estime={}
     while not (convergence):
-        limite=0.0001
-        # iteration
-        s,c,lk = iteration(Xd, signaux, Y, N,K)
-        signaux = s
-        # calcul log Lk 
-        #convergence = True
-        print("maximum de vraisemblance: ",lk)
-        convergence = abs((abs(lk) - abs(last_iteration)) / abs(lk)) < limite
-        last_iteration = lk
-    return (signaux, c)
+        modeles = []
+        probas_estime={}
+        #probas_estime = np.zeros(nClasse)
+        cpt=0
+        for cl in classes:
+            probas_estime[cl] = []
+            M = learnHMM(Xd[Y==cl], signaux[index[cpt]], N, K, True)
+            modeles.append(M)
+            proba_temp = []
+            classe_resultat = []
+            for x in Xd[Y == cl]:
+                viterbi_res = viterbi(x, M[0], M[1], M[2])
+                proba_temp.append(viterbi_res[1])
+                classe_resultat.append(viterbi_res[0])
+                
+            signaux[index[cpt]] = classe_resultat
+            probas_estime[cl] = proba_temp
+            cpt +=1
+        log_lk = 0
+        for c in classes:
+            for i in range(len(X[Y == c])):
+                log_lk += probas_estime[c][i]
         
-        
+        print("maximum de vraisemblance: ",L[-1])
+        convergence = ((L[-1] - log_lk) / L[-1] < limite)
+        L.append(log_lk)
+    return (modeles, L)
 
-c = baumwelch(X, Y,Pi,A,B,N,K)
+
+
+#########################
+## Partie evaluation ####
+#########################
+
+# separation app/test, pc=ratio de points en apprentissage
+def separeTrainTest(y, pc):
+    indTrain = []
+    indTest = []
+    for i in np.unique(y): # pour toutes les classes
+        ind, = np.where(y==i)
+        n = len(ind)
+        indTrain.append(ind[np.random.permutation(n)][:int(np.floor(pc*n))])
+        indTest.append(np.setdiff1d(ind, indTrain[-1]))
+    return indTrain, indTest
+
+# x part of X, M modeles from BaumWelch
+#def predic(x, M):
+#    maxi = -1* float('inf')
+#    index = None
+#    for cl in range(len(M)):
+#        m = M[cl]
+#        proba, s = viterbi(x, m[0], m[1], m[2])
+#        if proba > maxi:
+#            maxi = proba
+#            index = cl
+#    print(index)
+#    #print(argmax([viterbi(x, M[0], M[1], M[2]])[1] for c in range(...)))#OU placer [c]?
+#    return maxi, index
+
+def iTrain():
+    itrain,itest = separeTrainTest(Y,0.8)
+    ia = []
+    for i in itrain:
+        ia += i.tolist()    
+    it = []
+    for i in itest:
+        it += i.tolist()
+    return (ia, it)
+
+def visualise_conf(verite, prediction, Ylocal):
+    conf = np.zeros((26,26))
+    for cl in range (len(Ynum)):
+        v = int(verite[cl])
+        p = prediction[cl]    
+        conf[v][p] += 1
+        
+    plt.figure()
+    plt.imshow(conf, interpolation='nearest')
+    plt.colorbar()
+    plt.xticks(np.arange(26),np.unique(Ylocal))
+    plt.yticks(np.arange(26),np.unique(Ylocal))
+    plt.xlabel(u'Vérité terrain')
+    plt.ylabel(u'Prédiction')
+    plt.savefig("mat_conf_lettres.png")
+    
+ia,it=iTrain()
+
+# aprentissage avec les donnée training
+modeles, L = baumwelch(X[ia], Y[ia], N, K)
+
+# Char à numero
+Ynum = np.zeros(Y[it].shape);
+for num,char in enumerate(np.unique(Y)):
+    Ynum[Y[it]==char] = num;
+
+#predictions avec les donnée test
+Xd = discretise(X[it], K)
+proba = np.array([
+    [viterbi(x, modeles[cl][0], modeles[cl][1], modeles[cl][2])[1] for x in Xd] 
+    for cl in range(len(np.unique(Y)))
+])
+
+pred = proba.argmax(0);
+print("teste avec le separation à training et test")
+print(np.where(pred != Ynum, 0.,1.).mean())
+
+# visualisation
+visualise_conf(Ynum, pred, Y)
