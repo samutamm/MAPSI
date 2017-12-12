@@ -5,3 +5,4 @@
 *.avi
 *.png
 *.zip
+*__pycache__

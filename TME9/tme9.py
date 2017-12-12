@@ -8,80 +8,19 @@ TME 9
 
 import numpy as np
 import matplotlib.pyplot as plt
-
-def qFunc(x, moyenne, ecart):
-    return 1/(ecart*np.sqrt(np.pi * 2)) * np.exp(-0.5* ((x-moyenne) / ecart)**2)
-
-def fFunc(z, m, e):
-    return qFunc(z, m,e)
-
-def f(x, a,b):
-    return x if a <=x and x <= b else -9999 
-
-def monteCarlo1DCarre(N):
-    a = -1
-    b = 1
-    x = np.zeros(N);
-    q = np.zeros(N);
-    i = 0
-    while(i < N):
-        z = tirage(b)
-        mq = 2 * qFunc(z,0,1)
-        u = np.random.uniform(0,mq)
-        mpi = fFunc(z, 0,0.5)
-        if u <= mpi:
-            x[i] = z
-            q[i] = u#mq
-            i = i + 1
-    return (x,q)
-
-#N = 1000
-#x,u = monteCarlo1DCarre(N);
-#plt.plot(x, u, "go")
-#plt.show()
+import pickle as pkl
 
 def tirage(m):
-    r1 = np.random.uniform(-1,1) * m;
-    r2 = np.random.uniform(-1,1) * m;
-    return r1 * r2;
+    return [np.random.uniform(-1,1) * m,np.random.uniform(-1,1) * m]
 
 def monteCarlo(N):
-    a = -1
-    b = 1
-    x = np.zeros(N);
-    y = np.zeros(N);
-    i = 0
-    j = 0
-    while(i < N or j < N):
-        #(1) tirer un nombre z selon q(·) (pre-´echantillonnage)
-        Z1 = tirage(b+5)
-        Z2 = tirage(b+5)
-        #(2) calculer mq = k · q(z)
-        mq1 = qFunc(Z1, a,b)
-        mq2 = qFunc(Z2, a,b)
-        #(3) tirer un nombre u selon
-        #la distribution uniforme sur [0, mq]
-        u1 = tirage(3)
-        u2 = tirage(3)
-        #(4) accepter z comme ´echantillon si u ≤ f(x).
-        
-        if u1 <= f(Z1, a, b) and i < N:
-            x[i] = Z1
-            i = i + 1
-        if u2 <= f(Z2, a, b) and j < N:
-            y[j] = Z2
-            j = j + 1
-    ind = indicatrice(x,y)
-    pi = 4 * esperance(x[ind],y[ind])
-    return (pi,x,y)
+    tirages = np.array([tirage(1) for i in range(N)])    
+    X = tirages[:,0]
+    Y = tirages[:,1]    
+    pi = 4 * (np.where(np.sqrt(X**2 + Y**2) <= 1)[0].size) / N
+    return (pi,X,Y)
 
-def indicatrice(X,Y):
-    return np.sqrt(X**2 + Y**2) <= 1
-
-def esperance(X,Y):
-    return (np.mean(X) + np.mean(Y)) / 2
-
-plt.figure()
+#plt.figure()
 
 # trace le carré
 plt.plot([-1, -1, 1, 1], [-1, 1, 1, -1], '-')
@@ -93,10 +32,55 @@ plt.plot(x, y, 'b')
 plt.plot(x, -y, 'b')
 
 # estimation par Monte Carlo
-pi, x, y = monteCarlo(int(3*1e3))
+pi, x, y = monteCarlo(int(1e4))
 
 # trace les points dans le cercle et hors du cercle
-dist = x*x + y*y 
-plt.plot(x[dist <=1], y[dist <=1], "go")
-plt.plot(x[dist>1], y[dist>1], "ro")
-plt.show()
+#dist = x*x + y*y 
+#plt.plot(x[dist <=1], y[dist <=1], "go")
+#plt.plot(x[dist>1], y[dist>1], "ro")
+#plt.show()
+
+# si vos fichiers sont dans un repertoire "ressources"
+with open("./countWar.pkl", 'rb') as f:
+    (count, mu, A) = pkl.load(f, encoding='latin1')
+    
+with open("./fichierHash.pkl", 'rb') as f:
+    chars2index = pkl.load(f, encoding='latin1')
+
+with open("./secret.txt", 'r') as f:
+    secret = f.read()[0:-1] # -1 pour supprimer le saut de ligne
+ 
+def swapF(d1):
+    d2 = {}
+    for cle in d1.keys():
+        d2[d1[cle]] = cle
+    return d2
+     
+tau = {'a' : 'b', 'b' : 'c', 'c' : 'a', 'd' : 'd' }
+print(swapF(tau))
+
+def decrypt(mess, d1):
+    ret_str = ""
+    for c in mess:
+        nouvel_char = d1[c];
+        ret_str = ret_str + nouvel_char
+    return ret_str
+ 
+#le prochaine ne fonctionne pas :D
+#chars2index = dict(zip(np.array(list(count.keys())), np.arange(len(count.keys()))))
+
+def  logLikelihood(mess, mu, A, chars2index):
+    proba = 0
+    precedant = chars2index[mess[0]]
+    proba = proba + np.log(mu[precedant])
+    for i in range(1, len(mess)):
+        new = chars2index[mess[i]]
+        proba = proba + np.log(A[precedant, new])
+        precedant = new
+    return proba
+    
+print("abcd = ", logLikelihood( "abcd", mu, A, chars2index ))
+print("dcba = ", logLikelihood( "dcba", mu, A, chars2index ))
+
+def MetropolisHastings(mess, mu, A, tau, N, chars2index):
+    return "TODO"
