@@ -47,13 +47,20 @@ with open("./countWar.pkl", 'rb') as f:
 with open("./fichierHash.pkl", 'rb') as f:
     chars2index = pkl.load(f, encoding='latin1')
 
-with open("./secret.txt", 'r') as f:
-    secret = f.read()[0:-1] # -1 pour supprimer le saut de ligne
+with open("./secret2.txt", 'r') as f:
+    secret2 = f.read()[0:-1] # -1 pour supprimer le saut de ligne
  
 def swapF(d1):
+    c1 = np.random.choice(list(d1.keys()))
+    c2 = np.random.choice(list(d1.keys()))
     d2 = {}
     for cle in d1.keys():
-        d2[d1[cle]] = cle
+        if cle == c1:
+            d2[c1] = d1[c2];
+        elif cle == c2:
+            d2[c2] = d1[c1];
+        else:
+            d2[cle] = d1[cle];         
     return d2
      
 tau = {'a' : 'b', 'b' : 'c', 'c' : 'a', 'd' : 'd' }
@@ -83,4 +90,47 @@ print("abcd = ", logLikelihood( "abcd", mu, A, chars2index ))
 print("dcba = ", logLikelihood( "dcba", mu, A, chars2index ))
 
 def MetropolisHastings(mess, mu, A, tau, N, chars2index):
-    return "TODO"
+    plus_vs = logLikelihood(mess, mu, A, chars2index);
+    print(plus_vs)
+    message_decode = mess;
+    for i in range(0,N):
+        tau2 = swapF(tau);
+        decode = decrypt(message_decode, tau2);
+        vs = logLikelihood(decode, mu, A, chars2index);
+        V = min(1.0, vs / plus_vs)
+        U = np.random.uniform()
+        if U < V:
+            print(vs)
+            #print(decode)
+            plus_vs = vs;
+            message_decode = decode;
+            if vs > -2000:
+                return message_decode;
+    print(plus_vs)
+    return message_decode
+
+def identityTau (count):
+    tau = {}
+    for k in list(count.keys ()):
+        tau[k] = k
+    return tau
+
+def creeTau(count):
+    freqKeys = np.array(list(count.keys()))
+    freqVal  = np.array(list(count.values()))
+    # indice des caracteres: +freq => - freq dans la references
+    rankFreq = (-freqVal).argsort()
+    
+    # analyse mess. secret: indice les + freq => - freq
+    cles = np.array(list(set(secret2))) # tous les caracteres de secret2
+    rankSecret = np.argsort(-np.array([secret2.count(c) for c in cles]))
+    # ATTENTION: 37 cles dans secret, 77 en général... On ne code que les caractères les plus frequents de mu, tant pis pour les autres
+    # alignement des + freq dans mu VS + freq dans secret
+    tau_init = dict([(cles[rankSecret[i]], freqKeys[rankFreq[i]]) for i in range(len(rankSecret))])
+    idTau = identityTau(count)
+    for k in idTau.keys():
+        if k not in tau_init.keys():
+            tau_init[k] = idTau[k];
+    return tau_init
+
+print(MetropolisHastings( secret2, mu, A, creeTau(count), 10000, chars2index))
