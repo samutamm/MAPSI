@@ -53,25 +53,16 @@ with open("./secret2.txt", 'r') as f:
 def swapF(d1):
     c1 = np.random.choice(list(d1.keys()))
     c2 = np.random.choice(list(d1.keys()))
-    d2 = {}
-    for cle in d1.keys():
-        if cle == c1:
-            d2[c1] = d1[c2];
-        elif cle == c2:
-            d2[c2] = d1[c1];
-        else:
-            d2[cle] = d1[cle];         
+    d2 = dict(d1)
+    d2[c1] = d1[c2]
+    d2[c2] = d1[c1]
     return d2
      
 tau = {'a' : 'b', 'b' : 'c', 'c' : 'a', 'd' : 'd' }
 print(swapF(tau))
 
-def decrypt(mess, d1):
-    ret_str = ""
-    for c in mess:
-        nouvel_char = d1[c];
-        ret_str = ret_str + nouvel_char
-    return ret_str
+def decrypt(mess, dictionnaire):
+    return ''.join([dictionnaire[c] for c in mess])
  
 #le prochaine ne fonctionne pas :D
 #chars2index = dict(zip(np.array(list(count.keys())), np.arange(len(count.keys()))))
@@ -91,23 +82,19 @@ print("dcba = ", logLikelihood( "dcba", mu, A, chars2index ))
 
 def MetropolisHastings(mess, mu, A, tau, N, chars2index):
     plus_vs = logLikelihood(mess, mu, A, chars2index);
-    print(plus_vs)
     message_decode = mess;
     for i in range(0,N):
         tau2 = swapF(tau);
-        decode = decrypt(message_decode, tau2);
+        decode = decrypt(mess, tau2);
         vs = logLikelihood(decode, mu, A, chars2index);
-        V = min(1.0, vs / plus_vs)
-        U = np.random.uniform()
+        V = min(0, vs - plus_vs)
+        U = np.log(np.random.uniform())
         if U < V:
-            print(vs)
-            #print(decode)
+            print("likelihood: %, V: %",vs,V)
+            tau = tau2
             plus_vs = vs;
             message_decode = decode;
-            if vs > -2000:
-                return message_decode;
-    print(plus_vs)
-    return message_decode
+    return message_decode, plus_vs
 
 def identityTau (count):
     tau = {}
@@ -127,10 +114,6 @@ def creeTau(count):
     # ATTENTION: 37 cles dans secret, 77 en général... On ne code que les caractères les plus frequents de mu, tant pis pour les autres
     # alignement des + freq dans mu VS + freq dans secret
     tau_init = dict([(cles[rankSecret[i]], freqKeys[rankFreq[i]]) for i in range(len(rankSecret))])
-    idTau = identityTau(count)
-    for k in idTau.keys():
-        if k not in tau_init.keys():
-            tau_init[k] = idTau[k];
     return tau_init
 
-print(MetropolisHastings( secret2, mu, A, creeTau(count), 10000, chars2index))
+print(MetropolisHastings( secret2, mu, A, creeTau(count), 50000, chars2index))
