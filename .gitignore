@@ -6,3 +6,4 @@
 *.png
 *.zip
 *__pycache__
+*.pkl.save
