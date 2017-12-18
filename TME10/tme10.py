@@ -132,8 +132,40 @@ Xqmc = np.hstack(((Xq**2).reshape(N,1), Xq.reshape(N,1), np.ones((N,1))))
 wstar2 = estimationMoindresCarres(Xqmc, Yq)
 
 print(wstar2)
-x=np.linspace(0,1,1000)
+x=np.linspace(0,1,N)
+y_pred = wstar2[0]*(x**2) + (wstar2[1]*x) + wstar2[2]
 plt.figure()
 plt.scatter(Xq,Yq)
-plt.plot(x, wstar2[0]*(x**2) + (wstar2[1]*x) + wstar2[2], 'r')
+plt.plot(x, y_pred, 'r')
 plt.show()
+
+# R2 ne serve pas le modele non-linéaire 
+#def R2(Y, Yp):
+#    Ym = Y.mean()
+#    ve = ((Y - Yp) ** 2).sum()
+#    vr = ((Y - Ym) ** 2).sum()
+#    return (ve / vr)
+
+def reconstruction_error(Y, Yp):
+    return np.sqrt(sum((Yq-Yp)**2))
+
+print("error de reconstruction:")
+print(reconstruction_error(Yq, y_pred))
+
+#----------------------------------------------------#
+#                   Données réelles                  #
+#----------------------------------------------------#
+
+red_wine = np.loadtxt("winequality/winequality-red.csv", delimiter=';', skiprows=1)
+N,d = data.shape # extraction des dimensions
+pcTrain  = 0.7 # 70% des données en apprentissage
+allindex = np.random.permutation(N)
+indTrain = allindex[:int(pcTrain*N)]
+indTest = allindex[int(pcTrain*N):]
+X = data[indTrain,:-1] # pas la dernière colonne (= note à prédire)
+Y = data[indTrain,-1]  # dernière colonne (= note à prédire)
+# Echantillon de test (pour la validation des résultats)
+XT = data[indTest,:-1] # pas la dernière colonne (= note à prédire)
+YT = data[indTest,-1]  # dernière colonne (= note à prédire)
+
+
