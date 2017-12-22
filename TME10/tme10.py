@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 import pickle as pkl
 import pdb # debugging
 
+plt.close("all")
+
 def tirages(N, a, b, sig):
     X = np.random.rand(N)
     e = sig * np.random.randn(N)
@@ -147,7 +149,12 @@ plt.show()
 #    return (ve / vr)
 
 def reconstruction_error(Y, Yp):
-    return np.sqrt(sum((Yq-Yp)**2))
+    return (1 / Y.size) * (sum((Y-Yp)**2))
+
+def errorEntier(Yprediction,Yverite):
+    Yentier = np.array([int(x) for x in Yprediction]);
+    compte = np.count_nonzero(Yverite - Yentier);
+    return compte / len(Yverite)
 
 print("error de reconstruction:")
 print(reconstruction_error(Yq, y_pred))
@@ -157,15 +164,55 @@ print(reconstruction_error(Yq, y_pred))
 #----------------------------------------------------#
 
 red_wine = np.loadtxt("winequality/winequality-red.csv", delimiter=';', skiprows=1)
-N,d = data.shape # extraction des dimensions
+N,d = red_wine.shape # extraction des dimensions
 pcTrain  = 0.7 # 70% des données en apprentissage
 allindex = np.random.permutation(N)
 indTrain = allindex[:int(pcTrain*N)]
 indTest = allindex[int(pcTrain*N):]
-X = data[indTrain,:-1] # pas la dernière colonne (= note à prédire)
-Y = data[indTrain,-1]  # dernière colonne (= note à prédire)
+X = red_wine[indTrain,:-1] # pas la dernière colonne (= note à prédire)
+Y = red_wine[indTrain,-1]  # dernière colonne (= note à prédire)
 # Echantillon de test (pour la validation des résultats)
-XT = data[indTest,:-1] # pas la dernière colonne (= note à prédire)
-YT = data[indTest,-1]  # dernière colonne (= note à prédire)
+XT = red_wine[indTest,:-1] # pas la dernière colonne (= note à prédire)
+YT = red_wine[indTest,-1]  # dernière colonne (= note à prédire)
 
+#"fixed acidity";"volatile acidity";"citric acid";"residual sugar";"chlorides";"free sulfur dioxide";"total sulfur dioxide";"density";"pH";"sulphates";"alcohol";"quality"
 
+new_X =  X[:, -2] #X[:, 3] *
+new_XT =  XT[:, -2] #X[:, 3] *
+Xwine = np.hstack(((new_X**2).reshape(new_X.size,1), new_X.reshape(new_X.size,1), np.ones((new_X.size,1))))
+wstar = estimationMoindresCarres(Xwine, Y)
+print(wstar)
+
+#yquad=ax2+bx+c+ϵ
+def afficheResultat(wstar, Xlocal, Ylocal):
+    x = np.sort(Xlocal)
+    #x=np.linspace(Xlocal.min(),Xlocal.max(),Xlocal.size)
+    y_pred = wstar[0]*(x**2) + (wstar[1]*x) + wstar[2]
+    plt.figure()
+    plt.scatter(Xlocal, Ylocal);
+    plt.plot(x, y_pred, 'r')
+    plt.show()
+    print("error aprentissage")
+    print(reconstruction_error(x, y_pred))
+    print("en arrondissement combient trouvé exactement")
+    print(errorEntier(y_pred, Ylocal))
+
+afficheResultat(wstar, new_X, Y)
+afficheResultat(wstar, new_XT, YT)
+
+new_X2 =  X[:, -2]* X[:, 1]
+new_XT2 = XT[:, -2] *XT[:, 1]
+Xwine2 = np.hstack(((new_X2**2).reshape(new_X2.size,1), new_X2.reshape(new_X2.size,1), np.ones((new_X2.size,1))))
+wstar2 = estimationMoindresCarres(Xwine2, Y)
+print(wstar2)
+afficheResultat(wstar2, new_X2, Y)
+afficheResultat(wstar2, new_XT2, YT)
+
+#trois VARIABLES
+new_X2 =  X[:, -2]* X[:, 1] * X[:, 2]
+new_XT2 = XT[:, -2] *XT[:, 1] *XT[:, 2]
+Xwine2 = np.hstack(((new_X2**2).reshape(new_X2.size,1), new_X2.reshape(new_X2.size,1), np.ones((new_X2.size,1))))
+wstar2 = estimationMoindresCarres(Xwine2, Y)
+print(wstar2)
+afficheResultat(wstar2, new_X2, Y)
+afficheResultat(wstar2, new_XT2, YT)
